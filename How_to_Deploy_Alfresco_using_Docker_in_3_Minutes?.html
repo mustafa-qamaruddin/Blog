@@ -1,0 +1,233 @@
+<h3>What is Alfresco?</h3>
+
+<p>Alfresco is an Enterprise Content Management (ECM) and Business Process Modeling (BPM) System. It's, however, recognized more prominently as a Document Management System (DMS).</p>
+
+<p>It runs on an Apache TomCat Server and it supports a range of Database Management Systems (DBMS). In this post, we will use PostgreSQL which is the default option.</p>
+
+<p>It provides a range of enterprise level features like role-based user management, document version control, and it could be extended with an Optical Character Recognition (OCR) module. It could also be integrated with an Enterprise Resource Planning (ERP) such as ODOO.</p>
+
+<h3>Before You Start</h3>
+
+<p>It's usually a good practice not to test new software on your machine directly. You could end up messing around with system files or binding to wrong ports. I'd start with installing Ubuntu 64-bit on a virtual machine using <i>Oracle VM VirtualBox</i>.</p>
+
+<p>I'd also recommend changing the default directory that Docker is using to store images. Otherwise, the disk storage gets eaten up and one runs into a similar issue as described in a previous blog : <a href="https://mustafamahrous.wordpress.com/2016/05/27/ubuntu-login-screen-loop/">Ubuntu Login Screen Loop</a></p>
+
+<h3>Docker Container Networking</h3>
+
+<p>Docker provides a networking mechanism to orchestrate the communication between the containers and the host and between the containers and each other.</p>
+
+<p>By default Docker creates three networks for your container:</p>
+
+<ul>
+	<li>None</li>
+	<li>Host</li>
+	<li>Bridge</li>
+</ul>
+
+<p>Briefly, the Host network copies the /etc/hosts file from the host machine to the container. The Bridge network connects the host machine and the container.</p>
+
+<p>Docker also gives options for networking containers running on the same host machine or containers running on different hosting machines. I'd suggest having a look at the documentation for a profound understanding [<a href="#refs">1</a>].</p>
+
+<h3>Docker Container Linking</h3>
+
+<p>Instead of hard-wiring containers using networking, Docker provides a nifty feature to link containers via an argument - -link passed to the run command.</p>
+
+[code language="bash"]
+$ docker run --link [name or id]:alias image
+[/code]
+
+<h3>Docker Container Linking via an Ambassador</h3>
+
+<p>This is not everything. Docker provides another nifty feature that works just out-of-the-box to link containers running on different machines using an ambassador container [<a href="#refs">3</a>]. This feature was alsodeprecated and superseded with <i>Overlay Networks</i> when Docker Networking was introduced [<a href="#refs">1</a>].</p>
+
+<h3>Docker Data Volumes</h3>
+
+<p>Since, a container is a virtualization of a platform in a way or another, it doesn't persist state. That is any data one's working on or any changes one makes, they will get lost once the container is stopped.</p>
+
+<p>Docker provides the ability of mounting data volumes to containers. In a nutshell, it instructs the container to persist the data found in a specific directory to a permanent directory on the hosting machine. It's all simpleand it's done with an argument -v of the run command. For profound understanding, please refer to Manage Data in Containers [<a href="#refs">2</a>] section in the official documentation.</p>
+
+[code language="bash"]
+$ docker run \
+-v [host directory]:[container directory] \
+image
+[/code]
+
+<h3>Docker Data Volume Containers</h3>
+
+<p>A more robust alternative to persisting data is called data volume containers. This is a valid option because</p>
+
+<ul>
+	<li>We create a new container based on the same image</li>
+	<li>The data container is easily shared with multiple containers</li>
+	<li>The persisting directory is not bound by name to a specific container</li>
+</ul>
+
+<p>As interpreted in [<a href="#refs">7</a>], the containerization is only a logical shift of the mind-set; let's think in terms of containers, no matter where the data is physically stored.</p>
+
+<p>For profound understanding, please refer to Manage Data in Containers [<a href="#refs">2</a>] section in the official documentation.</p>
+
+<h3>What is our plan?</h3>
+
+<p>The plan is to set up PostgreSQL server on one container and Alfresco on another container. Then, we instruct the Alfresco to connect to PostgreSQL via Docker networking. Both containers will persist their data via Docker volumes to the host machine. Finally, we write a shell script that runs on machine start-up, since we will have to run the containers each time our hosting machine reboots.</p>
+
+<h3>Just A Question</h3>
+
+<p>You may start wondering now why we didn't mount the PostgreSQL data path running on the Alfresco	container to our host machine? It would have saved us the hassle of networking. Yes, you're right. However, in a production environment it's very common that the database server will be running on a different machine than the application. In this case and if both are Docker based environments, one can extend the concept introduced in this blog post to networking Docker containers running on different	hosts with few extra steps.</p>
+
+<h3>One More Question</h3>
+
+<p>Why haven't we used Docker container linking as a ready out-of-the box alternative to hard-wiring containers via networking? In addition to that Docker Networking is a more recent feature that succeeded Legacy Container Linking. I quote this answer from [<a href="refs">4</a>]:</p>
+<blockquote>
+
+	<h4>Networking vs. Links</h4>
+
+	<p>We know that some users love the simplicity of links and you can still use links in the docker0 network. But we’d recommend that you try out our new networking because unlike links, it allows you to:</p>
+
+	<ul>
+		<li>Connect containers to each other across different physical or virtual hosts</li>
+		<li>Containers using Networking can be easily stopped, started and restarted without disrupting the connections to other containers</li>
+		<li>You don’t need to create a container before you can link to it. With Networking containers be created in any order and discover each other using their container names</li>
+	</ul>
+</blockquote>
+<h3>A Bridge Network</h3>
+
+<p>Using sudo to run Docker commands is way inapt and a professional solution is to add the current user to the docker group as advised in the official documentation [<a href="#refs">5</a>].</p>
+
+[code language="bash"]
+$ sudo usermod -aG docker $USER
+[/code]
+
+<p>Docker official documentation recommends using a bridge network for connecting containers running on the same host. The containers discover each other, and the network itself could be pinged from the host machine or any other machine. It's also possible to reserve ports for external communications.</p>
+
+<p>It's possible to list all the networks available using the following command.</p>
+
+[code language="bash"]
+$ docker network ls
+[/code]
+
+<p>Hence, we create a user defined bridge network using the following command.</p>
+
+[code language="bash"]
+$ docker network create --driver bridge nw_alfresco
+[/code]
+
+<p>If we run the network listing command now, the new user defined network will be listed.</p>
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465068545/2016-06-04-005727_1366x768_scrot_dgtfse.png" />
+
+<p>If we run the network inspection command as follows, then we will see that there are no containers listed under this network. It's also easy to know the new network's gateway IP.</p>
+
+[code language="bash"]
+$ docker network inspect nw_alfresco
+[/code]
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465068364/2016-06-04-012220_1366x768_scrot_xqmgoy.png" />
+
+<h3>PostgreSQL Docker Image</h3>
+
+<p>In the beginning, I'd pull the official Docker image of PostgreSQL</p>
+
+[code language="bash"]
+$ docker pull postgres
+[/code]
+
+<p>Now, the following command runs the container from postgres image</p>
+
+[code language="bash"]
+$ docker run --name 'postgresql' \
+--net=nw_alfresco \
+-e POSTGRES_USER=pg_alfresco \
+-e POSTGRES_PASSWORD=123456 \
+-v $HOME/alfresco/database:/var/lib/postgresql/data \
+-d postgres
+[/code]
+
+<p>Let's unearth the meaning of each argument. Just note that "\" only denotes a line break in the command.</p>
+
+<p><i>- -name</i> assigns a name to the container that can be used later to start, stop and attach to the container.</p>
+
+<p>If one runs the containers listing command, then the just created container will be found with the name passed to - - name</p>
+
+[code language="bash"]
+$ docker ps
+[/code]
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465077936/2016-06-05-000435_1366x768_scrot_tzgnvc.png" />
+
+<p><i>- -net</i> connects the container to the user defined bridge network nw_alfresco which we have created together in the previous section. At this point if you inspect the nw_alfresco user defined network, the just created container will come under the containers listing. The following is the command and a	screen-shot of the output.</p>
+
+[code language="bash"]
+$ docker network inspect nw_alfresco
+[/code]
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465078194/2016-06-04-172000_1366x768_scrot_h92t1r.png" />
+
+<p><i>-e</i> indicates an environment variable key value pair. That's for example we assign the variable named POSTGRES_USER the value of 'pg_alfresco'. Hence, all the references made to this variable shall be replaced by the value when the container runs.</p>
+
+<p><i>-v</i> mounts the default directory used to stare the databases to a persistent directory on the hosting machine under the current user's home directory. Note that a custom storage directory other than /var/lib/postgresql/data could have been assigned to the container using the environment variable PGDATA.</p>
+
+<p>When one runs the container inspection command, the mountable volumes defined in the Docker build file can be found under volumes listing as follows.</p>
+
+[code language="bash"]
+$ docker inspect postgresql
+[/code]
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465077532/2016-06-04-172529_1366x768_scrot_dstyka.png" />
+
+<p>It's also valid to check the build file directly or the official documentation of the image for such details. In our case postgres documentation is found under [<a href="#refs">11</a>].</p>
+
+<p><i>-d</i> runs the container in a detached mode, so that one could run more commands in the terminal on the hosting machine, an alternative is -it for interactive mode.</p>
+
+<p>At this point, it's all abstract and one gets full of doubts whether these command really get the job done. I will show you next to ways to check the correctness of the above steps.</p>
+
+<p>First, let's attach to the container and run the psql in the terminal and inspect the schemas found so far.</p>
+
+[code language="bash"]
+$ docker exec -ti postgresql psql -U pg_alfresco
+$ docker attach postgresql
+[/code]
+
+<p>The first command <i>exec</i> is the Docker way of running a command in the container from the hosting machine's terminal [<a href="#refs">12</a>].</p>
+
+<p>The second command <i>attach</i> is the Docker way of switching the scope from the hosting machine to the container's standard output. It's usually used to run /bin/sh, but we have used it to run the Command Line Interface (CLI) of PostgreSql namely psql. If you have been following, we have set the environment variable of PostgreSql default user to be pg_alfresco and it is necessary at this point to pass it using -U (Case Sensitive) to the psql daemon.</p>
+
+<p>It's now as easy as simply running the following command to list the available schemas</p>
+
+[code language="bash"]
+# \l
+[/code]
+
+<p>It's worth noting that PostgreSql has created a schema with the same name of the default username. We could again have overridden this by setting the environment variable POSTGRES_DB when running the container.</p>
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465079644/2016-06-04-175810_1366x768_scrot_rhparc.png" />
+
+<p>Now let's check the persistent storage passed to -v argument, and I expect to find the files of PostgreSql permanently stored on the hosting machine under $HOME/alfresco/database. This way one can easily restore the database to any container in the future without losing a bit of the data. Here is a screen-shot of the contents of that directory.</p>
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465081362/2016-06-05-010059_1366x768_scrot_dvlqsj.png" />
+
+<h3>Alfresco Docker Image</h3>
+
+<p>It's time to pull the alfresco image running the command</p>
+
+[code language="bash"]
+$ sudo docker pull gui81/alfresco
+[/code]
+
+<h3>Start-up Script</h3>
+<h3>Writing Alfresco Modules</h3>
+<h3>Final Thoughts</h3>
+<h3 id="refs">References:</h3>
+<ol>
+	<li>https://docs.docker.com/engine/userguide/networking/dockernetworks/</li>
+	<li>https://docs.docker.com/engine/userguide/containers/dockervolumes/</li>
+	<li>https://docs.docker.com/engine/admin/ambassador_pattern_linking/</li>
+	<li>https://rominirani.com/docker-tutorial-series-a7e6ff90a023#.4za9qufwj</li>
+	<li>https://docs.docker.com/engine/installation/linux/ubuntulinux/#create-a-docker-group</li>
+	<li>http://stackoverflow.com/a/20652410</li>
+	<li>https://medium.com/@ramangupta/why-docker-data-containers-are-good-589b3c6c749e#.76tzt4ctn</li>
+	<li>https://github.com/gui81/docker-alfresco/issues/7#issuecomment-222505587</li>
+	<li>https://github.com/disaster37/rancher-alfresco#installation</li>
+	<li>https://docs.docker.com/engine/reference/commandline/volume_create/</li>
+	<li>https://hub.docker.com/_/postgres/</li>
+	<li><a href="http://stackoverflow.com/a/27673997">How to get to a psql from a running container?</a></li>
+</ol>

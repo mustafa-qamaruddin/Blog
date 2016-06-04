@@ -1,0 +1,318 @@
+In how many projects were the JavaScript (JS) files scattered with unrelated functions and event listeners? Not only does it make UI development a nightmare, but also our code is no longer reusable.
+
+In this blog, I'll demonstrate an approach to organize the JS files within a large project.
+<h3>Yii2 Asset Bundles</h3>
+Yii2 uses Asset Bundles to load JS and CSS files. Assets extend \yii\web\AssetBundles and they are automatically loaded by Yii2 according to the following precedence rules from bottom-up:
+<ol>
+	<li>widgets</li>
+	<li>views</li>
+	<li>actions</li>
+	<li>controllers</li>
+	<li>layout</li>
+</ol>
+Even though Asset Bundles use a $depends attribute to specify dependency among different assets. For example, adding jQuery to $depends array, forces the the jQuery script tag to be output before other JS files in the Document. However, this never guarantees the order in which files are loaded, and one has to manage this in the client side. In case of jQuery, for example, one includes all code in a single $(document).ready(); closure function.
+
+Asset Manager provides a nifty feature called Asset Mapping. For example, you can map all different versions of jQuery - included by different Asset Bundles in widgets, extensions, or modules - to a single consistent version.
+
+To follow with the rest of this blog, open a Yii2 project, and I assume you have downloaded and initialized a new project smoothly. Open AppAssets.php located under App/Assets namespace. I'll include only two JS files; <a href="http://requirejs.org/docs/release/2.1.22/minified/require.js" target="_blank">require.js</a> and app.js.
+
+[code language="php"]
+&amp;lt;?php
+
+namespace app\assets;
+
+use yii\web\AssetBundle;
+
+class AppAsset extends AssetBundle
+{
+    public $basePath = '@webroot';
+    public $baseUrl = '@web';
+    public $css = [
+        'css/site.css',
+    ];
+    public $js = [
+        'js/reqiore.js',
+        'js/app.js'
+    ];
+    public $depends = [
+        'yii\web\YiiAsset',
+        'yii\bootstrap\BootstrapAsset',
+    ];
+}
+[/code]
+
+In the following sections, I'll explain why and how this works. Also note that this blog is focused on JS, so CSS is still loaded in the traditional way.
+<h3>JS Module Pattern</h3>
+The module was first introduced by YUI team. They also recommend using it along with YUI for better organization and encapsulation. Let's borrow their usage of closures to create modules. The modules created as follows, provide a private and a public context, just like what one expects in an Object Oriented Programming (OOP) environment.
+
+[code language="javascript"]
+var myModule = function() {
+     // private context
+     var private_property;
+     var privateMethod() { };
+     return {
+             // public context
+             public_property: x,
+             publicMethod: function() {}
+            }
+};
+[/code]
+
+This piece of code creates a module - a class in OOP sense -. myModule exposes a public property or attribute, initialized to a dummy x, and a public method or function called publicMethod. Whiles it encapsulates a private property and a private method. This is nothing new to JS and one can argue against this approach in sake of others like the prototype based objects in JS. Let's move onto the next section to elaborate more and make this approach stand out.
+<h3>JS Singleton Pattern</h3>
+A singleton is a design pattern that allows us to have classes that can be created only once, and all subsequent trials to instantiate new objects of the class will simply return the instance created at the first time. Why this is a desirable characteristic depends on your application architecture. In Yii2 - actually in almost all known PHP frameworks - the application object itself is a singleton that is created by calling the run() method in the bootstrap file. Addy Osmani in his book Learning JavaScript Design Patterns implemented a singleton as follows [3]:
+
+[code language="javascript"]
+var myModule = myModule || function() {
+     // Instance stores a reference to the Singleton
+     var instance;
+
+     // Singleton Inner Closure
+     function init() {
+         // private context
+         var private_property;
+         var privateMethod() { };
+         return {
+                 // public context
+                 public_property: x,
+                 publicMethod: function() {}
+                }
+      };
+      return {
+         // Get the Singleton instance if one exists
+         // or create one if it doesn't
+         getInstance: function() {
+                if (!instance) {
+                    instance = init();
+                }
+                return instance;
+         }
+      }
+};
+[/code]
+
+This way clients of this module can not cause memory leakages by creating infinite instances of the class. And in order to use the functionality encapsulated in the singleton, a client must call first
+
+var obj_of_my_module = myModule.getInstance();
+<h3>A Bonus Section</h3>
+Let's spice our code a bit to my favorite flavor - copied from the head of engineering at Nilecode <a href="https://de.linkedin.com/in/ahmedkamals">Ahmed Kamal</a>.
+
+[code language="javascript"]
+var myModule = myModule || function() {
+     // Instance stores a reference to the Singleton
+     var instance;
+
+     // Singleton Inner Closure
+     function init() {
+         // private context
+         var private_property;
+         var privateMethod() { };
+         // UI Events Handlers aka Listeners
+         var handle_form_submit() {};
+
+         // Attach UI Event Listeners
+         var attachEvents() {
+                  $(css.forms.id).submit(handle_form_submit);
+         };
+
+         // configurations
+         var conf = {
+         };
+         // css selectors
+         var css = {
+                 forms: {
+                         id: '#registration-form',
+                         txt: 'registration-form'
+                 },
+                 divs: {},
+                 inputs: {},
+                 dropdowns: {}
+         };
+         return {
+                 // public context
+                 public_property: x,
+                 publicMethod: function() {}
+                }
+      };
+      return {
+         // Get the Singleton instance if one exists
+         // or create one if it doesn't
+         getInstance: function() {
+                if (!instance) {
+                    instance = init();
+                }
+                return instance;
+         }
+};   
+[/code]
+
+I've also asked <a href="https://de.linkedin.com/in/ahmedkamals">Ahmed Kamal</a> for his feedback, and he gladly enriched me with a few comments. He suggested moving function definitions outside the scope of init to keep the function small. Hence, I moved it outwards in the private scope below var instance; . He also recommended passing the configurations as a parameter to the module to become init(_config). Finally, he advised to perform some type checking first before using the configurations inside the module. Here you are a modified version of the code above:
+
+[code language="javascript"]
+define([
+    'jquery',
+    'bootstrap_star_rating'
+], function($, bootstrap, star_rating) {
+    // Instance stores a reference to the Singleton
+    var instance;
+    
+    // Private Methods
+    /**
+     * responsible for all jQuery ui events
+     */
+    function attach_events() {
+        $(css.divs.rate.sel).rating(conf);
+        $(css.divs.rate.sel).on('rating.change', handle_change_rating);
+    };
+    
+    // start handlers //
+    function handle_change_rating(event, value, caption) {
+        // some more code here ...
+    };
+    
+    /**
+     * callback for handler
+     */
+    function handle_change_rating_callback(data) {
+        console.log(data.success);
+    }
+    // end handlers //
+    
+    // Private Vars
+    var conf;
+    // default configurations
+    var default_conf = {
+        'size':'lg'
+    };
+    var css = {
+        dropdowns: {
+        },
+        forms: {
+        },
+        divs: {
+            rate: {
+                id: 'star-rate',
+                sel: '.star-rate'
+            },
+        },
+        inputs: {
+            place_id: {
+                id: 'star-rate-place-id',
+                sel: '[name=&amp;quot;star-rate-place-id&amp;quot;]'
+            },
+            old_rating: {
+                id: 'star-rate-place-rating',
+                sel: '[name=&amp;quot;star-rate-place-rating]'
+            }
+        }
+    };
+    
+    function init(_conf) {
+        // Singleton
+        // private
+        return {
+            // Public
+            engine: function(_conf) {
+                conf = _conf || default_conf;
+                attach_events();
+            }
+        };
+    };
+    return {
+        // public
+        getInstance: function(_conf) {
+            if (!instance) {
+                instance = init(_conf);
+            }
+            return instance;
+        }
+    }
+});
+[/code]
+
+I've also moved the requirejs.config({}) to a separate file, and included it along with the require.js in the App Asset class. Then, experminted with Yii2 widgets, and it worked all fine. However, I had to require the configs by wrapping my modules' calls as following:
+
+[code language="javascript"]
+// Load the main app module to start the app
+requirejs([&amp;quot;config&amp;quot;], function () {
+    requirejs([&amp;quot;run_add_place&amp;quot;]);
+    requirejs([&amp;quot;run_filters&amp;quot;]);
+});
+[/code]
+
+One could wonder why I would use such an unnecessary workaround, but I refer to [12, 13] for detailed explanations.
+<h3>Asynchronous Module Definiton (AMD)</h3>
+Now that our code is encapsulated in modules and suppose each module lies in its own file. If we included our JS files in the traditional way, we wouldn't know which files were loaded first. We would end up calling a method, even before its file is loaded into the page. [Remember, the order of writing script tags in HTML pages doesn't guarantee that the first tag will be served before the last one]. Here
+Asynchronous Module Definiton (AMD) comes to play. AMD is an API that allows a module to load its dependencies before using them. This technique allows the application to load the files only when they are needed that spares the loading of dozens of unused JS files. Moreover, it prevents a module from calling a dependency's code before it's available.
+<h3>RequireJS</h3>
+RequireJS is a JS library that implements AMD and exposes a method called <i>define</i>. One simply wraps the modules created in the previous sections with this method. Out of the box, all other modules - dependencies - are loaded and passed as parameters to the client. Note, one shouldn't stick to the approach illustrated in the previous sections, and can jump upright to this point to reap the benefits of modular JS.
+
+[code language="javascript"]
+//Calling define with module ID, dependency array, and factory function
+define('myModule', ['dep1', 'dep2'], function (dep1, dep2) {
+    //Define the module value by returning a value.
+    return function (
+          // copy here the code for the module
+    ) {};
+});
+[/code]
+
+Both ScriptManJS and Dojo Toolkit are valid alternatives to RequireJS. The fact that I haven't used them yet doesn't mean they are less robust than RequireJS.
+<h3>RequireJS with JQuery</h3>
+One should ask at this point whether globals such as jQuery's $ are handled properly. A good practice has been to call $.noConflict(); before using the $ to avoid conflicts with other libraries using the same symbol in global scope. After plundering the documentation of RequireJS, I found out that one could introduce a module called jquery-private that does this exactly:
+
+[code language="javascript"]
+// jquery-private.js file:
+define(['jquery'], function (jq) {
+    return jq.noConflict( true );
+});
+[/code]
+
+Then, we map all plugins depending on jQuery to load it through jquery-private. Thus far we have overlooked <i>app.js</i> which will serve as a configuration file and single unified entry point to our application.
+
+[code language="javascript"]
+requirejs.config({
+    // Add this map config in addition to any baseUrl or
+    // paths config you may already have in the project.
+    map: {
+      // '*' means all modules will get 'jquery-private'
+      // for their 'jquery' dependency.
+      '*': { 'jquery': 'jquery-private' },
+
+      // 'jquery-private' wants the real jQuery module
+      // though. If this line was not here, there would
+      // be an unresolvable cyclic dependency.
+      'jquery-private': { 'jquery': 'jquery' }
+    }
+});
+[/code]
+
+<h3>RequireJS with JQuery UI</h3>
+In [8], there is a structurd approach to use jQuery UI components in a loosely coupled manner, and I'll leave it to you to discover.
+<h3>RequireJS with Non-AMD Libraries</h3>
+A brief note worth mentioning is that loading older libraries written in different format from RequireJS is possible, so one isn't bound or limited to a subset of the JS third party libraries.
+<h3>RequireJS Optimization</h3>
+We may have over looked the performance when using RequireJS. Serving multiple files over HTTP 1.0 is a curse. SPDY and HTTP 2.0 wouldn't suffer from this curse, by the way. In a future blog post, I'll have discovered more about minification using RequireJS Optimizer tool. So stay tuned.
+<h3>RequireJS and BackboneJS</h3>
+Even though BackboneJS is ideal for implementing Model-View-Controller (MVC) pattern, but it would cause unnecessary overhead in the project at hand. I'd have used it, if I had wanted to build a rich single page application. I could've gone further to use a compiled JS framework like CoffeeScript.
+<h3>Final Thoughts</h3>
+There is never one single right way to programming. Every developer tailors code to his own favorite taste in the context of the requirements. Here we have defined a single entry point to the main application. However, each widget can have its own entry point as Bundle Assets allow us to do that smoothly. For further details, consult requirejs.org . Please share your thoughts and comments below.
+<h3>References:</h3>
+<ol>
+	<li>http://blog.teamtreehouse.com/organize-your-code-with-requirejs</li>
+	<li>http://www.adequatelygood.com/JavaScript-Module-Pattern-In-Depth.html</li>
+	<li>http://robdodson.me/javascript-design-patterns-singleton</li>
+	<li>http://addyosmani.com/resources/essentialjsdesignpatterns/book/#singletonpatternjavascript</li>
+	<li>https://toddmotto.com/mastering-the-module-pattern/#.VsZAr_uthfk.facebook</li>
+	<li>http://www.sitepoint.com/understanding-requirejs-for-effective-javascript-module-loading</li>
+	<li>http://code.tutsplus.com/tutorials/how-to-program-with-yii2-working-with-asset-bundles--cms-23226</li>
+	<li>https://learn.jquery.com/jquery-ui/environments/amd</li>
+	<li>http://www.yiiframework.com/doc-2.0/guide-structure-assets.html</li>
+	<li>http://yuiblog.com/blog/2007/06/12/module-pattern/</li>
+	<li>http://stackoverflow.com/a/20772431</li>
+	<li>https://github.com/requirejs/requirejs/issues/354</li>
+	<li>https://github.com/requirejs/requirejs/wiki/Patterns-for-separating-config-from-the-main-module</li>
+        <li>https://addyosmani.com/writing-modular-js/</li>
+        <li>http://stackoverflow.com/a/29181416</li>
+        <li>http://codeofrob.com/entries/why-i-stopped-using-amd.html</li>
+</ol>
