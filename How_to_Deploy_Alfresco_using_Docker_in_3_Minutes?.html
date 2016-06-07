@@ -246,8 +246,8 @@ $ tail -f /alfresco/tomcat/logs
 [code language="bash"]
 $ git clone https://github.com/disaster37/rancher-alfresco.git
 $ cd rancher-alfresco
-$ docker build --tag="$USER/alfresco"
-$ docker run -d --name "alfresco" \
+$ docker build --tag=&quot;$USER/alfresco&quot;
+$ docker run -d --name &quot;alfresco&quot; \
 -p 7070:7070 \
 -p 8080:8080 \
 --net=nw_alfresco \
@@ -274,7 +274,7 @@ $ \connect pg_alfresco
 $ \dt
 [/code]
 
-<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465253153/2016-06-04-010102_1366x768_scrot_pslumi.png" />
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465261806/2016-06-04-190107_1366x768_scrot_uholze.png" />
 
 <p>One more thing, when the network nw_alfresco was inspected, the new container was also connected to the network and listed under containers.</p>
 
@@ -282,7 +282,7 @@ $ \dt
 
 <h3>Start-up Script</h3>
 
-<p>In case the host machine is rebooted, one has to simply start the containers once again. It's crucial to the availability of the repository that this process is automated. In reference to [<a href="#refs">15, 17</a>], the following commands are to be run:</p>
+<p>In case the host machine is rebooted, one has to simply start the containers once again. It's crucial to the availability of the repository that this process is automated. In reference to [<a href="#refs">16, 17</a>], the following commands are to be run:</p>
 
 [code language="bash"]
 $ sudo apt-get install upstart
@@ -335,7 +335,7 @@ $ docker run --name 'postgresql' \
 -v $HOME/alfresco/database:/var/lib/postgresql/data \
 -d postgres
 
-$ docker run -d --name "alfresco" \
+$ docker run -d --name &quot;alfresco&quot; \
   -p 7070:7070 -p 8080:8080 \
  --net=nw_alfresco \
  -e DATABASE_HOST=172.18.0.2 \
@@ -357,7 +357,7 @@ $ docker run -d --name "alfresco" \
 <p>One can easily deploy Alfresco using the above strategy in less than three minutes. As long as the database and alf_data directory are backed up, one can easily migrate from one host machine to another.In this blog, we have together demonstrated concepts related to Docker Networking and Data Volumes. I'm looking forward to your comments and feedback.</p>
 
 <h3>Archaeological Alfresco</h3>
-<p>It's very interesting to know that Alfresco is the art of painting on fresh stucco which was prominent in Roman times in ancient Egypt [<a href="#refs">17</a>].</p>
+<p>It's very interesting to know that Alfresco is the art of painting on fresh stucco which was prominent in Roman times in ancient Egypt [<a href="#refs">18</a>].</p>
 
 <img class="aligncenter" src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Fayum-34.jpg/320px-Fayum-34.jpg" />
 
@@ -371,15 +371,15 @@ $ docker run -d --name "alfresco" \
 	<li><a href="http://stackoverflow.com/a/20652410">How to deal with persistent storage (e.g. databases) in docker?</a></li>
 	<li><a href="https://medium.com/@ramangupta/why-docker-data-containers-are-good-589b3c6c749e#.76tzt4ctn">Why Docker Containers are Good?</a></li>
 	<li><a href="https://github.com/gui81/docker-alfresco/issues/7#issuecomment-222505587">Alfresco error when using data volume for "/alfresco/alf_data" #7</a></li>
-	<li>https://github.com/disaster37/rancher-alfresco#installation</li>
-	<li>https://docs.docker.com/engine/reference/commandline/volume_create/</li>
-	<li>https://hub.docker.com/_/postgres/</li>
+	<li><a href="https://github.com/disaster37/rancher-alfresco#installation">Rancher Alfresco Docker Image</a></li>
+	<li><a href="https://docs.docker.com/engine/reference/commandline/volume_create/">Docker CLI Volume Create</a></li>
+	<li><a href="https://hub.docker.com/_/postgres/">Official Docker PostgreSql</a></li>
 	<li><a href="http://stackoverflow.com/a/27673997">How to get to a psql from a running container?</a></li>
 <li><a href="https://wiki.alfresco.com/wiki/Backup_and_Restore">Alfresco Wiki: Backup &amp; Restore</a></li>
 <li><a href="http://code.haleby.se/2016/01/22/enable-ssl-in-jenkins-in-docker/">Enable SSL in Jenkins in Docker
 </a></li>
 <li><a href="https://hub.docker.com/r/gui81/alfresco/">Docker Hub: gui81/alfresco</a></li>
-<li><a href="http://askubuntu.com/questions/814/how-to-run-scripts-on-start-up">Ask Ubuntu: How to run scripts on start up?</a><li>
-<li><a href="https://en.wikipedia.org/wiki/Fayum_mummy_portraits">Wikipedia: Fayum Mummy Portraits</a></li>
+<li><a href="http://askubuntu.com/questions/814/how-to-run-scripts-on-start-up">Ask Ubuntu: How to run scripts on start up?</a></li>
 <li><a href="http://upstart.ubuntu.com/getting-started.html">Getting Started Upstart</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Fayum_mummy_portraits">Wikipedia: Fayum Mummy Portraits</a></li>
 </ol>
