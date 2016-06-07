@@ -8,7 +8,7 @@
 
 <h3>Before You Start</h3>
 
-<p>It's usually a good practice not to test new software on your machine directly. You could end up messing around with system files or binding to wrong ports. I'd start with installing Ubuntu 64-bit on a virtual machine using <i>Oracle VM VirtualBox</i>.</p>
+<p>It's usually a good practice not to test new software on your machine directly. You could end up messing around with system files or binding to wrong ports. I'd start with installing Ubuntu 64-bit on a virtual machine using <i>Oracle VM VirtualBox</i>. One should assign an adequate storage such as 25 G byte</p>
 
 <p>I'd also recommend changing the default directory that Docker is using to store images. Otherwise, the disk storage gets eaten up and one runs into a similar issue as described in a previous blog : <a href="https://mustafamahrous.wordpress.com/2016/05/27/ubuntu-login-screen-loop/">Ubuntu Login Screen Loop</a></p>
 
@@ -201,33 +201,185 @@ $ docker attach postgresql
 
 <img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465079644/2016-06-04-175810_1366x768_scrot_rhparc.png" />
 
+<p>Note that in order to detach from a container's context or shell, one should press Ctrl+q+p. If one presses Ctrl+d, the container will exit, and this is not a desired action.</p>
+
 <p>Now let's check the persistent storage passed to -v argument, and I expect to find the files of PostgreSql permanently stored on the hosting machine under $HOME/alfresco/database. This way one can easily restore the database to any container in the future without losing a bit of the data. Here is a screen-shot of the contents of that directory.</p>
 
 <img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465081362/2016-06-05-010059_1366x768_scrot_dvlqsj.png" />
 
 <h3>Alfresco Docker Image</h3>
 
-<p>It's time to pull the alfresco image running the command</p>
+<p>It's time to pull the alfresco image. In this step, I had some issues when I tried gui81/alfresco image [<a href="#refs">15</a>].</p>
 
 [code language="bash"]
-$ sudo docker pull gui81/alfresco
+docker run --name='alfresco' -d \
+-p 8080:8080 \
+-v $HOME/alfresco_volumes/alf_data:/alfresco/alf_data \
+-v  $HOME/alfresco_volumes/tomcat_logs:/alfresco/tomcat/logs  \
+-v $HOME/alfresco_volumes/content:/content \
+gui81/alfresco
 [/code]
 
+<p>If mounted correctly, the logs are found under $HOME/alfresco_volumes/tomcat_logs. Or else one could simply attach to the container as before and manually inspect the TomCat server error log, and I copy the error here for the sake of completeness.</p>
+
+[code language="bash"]
+$ docker exec -ti alfresco /bin/sh
+$ tail -f /alfresco/tomcat/logs
+[/code]
+
+<p style="color:#ff0000;">SEVERE: Failed to initialize end point associated with ProtocolHandler ["http-bio-8443"] java.io.FileNotFoundException: /alfresco/alf_data/keystore/ssl.keystore (No such file or directory)</p>
+
+<p>I was terribly confused whether I should run the certification keytool inside the docker container or on the host. A tutorial for running Jenkins with SSL [<a href="#refs">14</a>] suggested that the issue is simply all about signing a certificate and placing it in the mounted volume. KeyTool is found in the $JAVA_HOME/bin, and if it is not found, one may consult a Java installation manual.</p>
+
+<p>After having signed the certificate and mounted it to the image. I ran into even more errors which I could not resolve.</p>
+
+<p style="color:#ff0000;">SEVERE: Error listenerStart May 28, 2016 4:58:11 AM org.apache.catalina.core.StandardContext startInternal</p>
+
+<p style="color:#ff0000;">ERROR [solr.tracker.AbstractTracker] [SolrTrackerScheduler_Worker-39] Tracking failed java.net.ConnectException: Connection refused</p>
+
+<p style="color:#ff0000;">SEVERE: Failed to initialize connector [Connector[HTTP/1.1-8443]] org.apache.catalina.LifecycleException: Failed to initialize component [Connector[HTTP/1.1-8443]]</p>
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465251637/alfresco_authentication_error_puqvmj.png" />
+
+<p>My issue was not resolved till I had a reply from <a href="https://github.com/DamienMure" target="_blank">Damien Mure</a> who was really helpful and explained a few points regarding the volumes and also suggested another image for Alfresco. The full discussion is to be found in [<a href="#">8</a>]. The commands to get up and running are:</p>
+
+[code language="bash"]
+$ git clone https://github.com/disaster37/rancher-alfresco.git
+$ cd rancher-alfresco
+$ docker build --tag="$USER/alfresco"
+$ docker run -d --name "alfresco" \
+-p 7070:7070 \
+-p 8080:8080 \
+--net=nw_alfresco \
+-e DATABASE_HOST=172.18.0.2 \
+-e DATABASE_NAME=pg_alfresco \
+-e DATABASE_PASSWORD=123456 \
+-e DATABASE_USER=pg_alfresco \
+$USER/alfresco
+[/code]
+
+<p>Note why no volume was specified here, as it would have mounted an empty folder and one would have run into the same errors once again. It's also worth explaining now, how to figure out the IP address of PostgreSql server. One has only to run the network inspection command, and sniff the IP address of PostgreSql.</p>
+
+[code language="bash"]
+$ docker network inspect nw_alfresco
+[/code]
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465253153/2016-06-04-010102_1366x768_scrot_pslumi.png" />
+
+<p>Now if one returns to the PostgreSql image and connects to pg_alfresco database, all the tables created by Alfresco should be listed. These commands do just that:</p>
+
+[code language="bash"]
+$ docker exec -ti postgresql -U pg_alfresco
+$ \connect pg_alfresco
+$ \dt
+[/code]
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465253153/2016-06-04-010102_1366x768_scrot_pslumi.png" />
+
+<p>One more thing, when the network nw_alfresco was inspected, the new container was also connected to the network and listed under containers.</p>
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465254231/2016-06-04-172424_1366x768_scrot_armjzv.png" />
+
 <h3>Start-up Script</h3>
-<h3>Writing Alfresco Modules</h3>
+
+<p>In case the host machine is rebooted, one has to simply start the containers once again. It's crucial to the availability of the repository that this process is automated. In reference to [<a href="#refs">15, 17</a>], the following commands are to be run:</p>
+
+[code language="bash"]
+$ sudo apt-get install upstart
+$ sudo vim .config/upstart
+[/code]
+
+<p>Then, add the following lines:</p>
+
+[code language="bash"]
+start on startup                                                                                                                                                    
+task                                                                             
+exec docker start postgresql                                                     
+exec docker start alfresco 
+[/code]
+
+<p>After rebooting the host machine, the containers should be listed when one runs this command:</p>
+
+[code language="bash"]
+$ docker ps
+[/code]
+
+<p>If one navigates to http://localhost:8080/share/page , the repository should be accessible.</p>
+
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465254979/2016-06-04-180149_1366x768_scrot_jumrlc.png" />
+
+<h3>Backup &amp; Restore</h3>
+
+<p>Since there are only two elements essential to an Alfresco repository: the database and the root directory, now we will write a simple cronjob to backup Alfresco every week at 05:00 AM. The following commands do the trick:</p>
+
+[code language="bash"]
+$ crontab -e
+[/code]
+
+<p>Simply add the following lines in your favorite editor:</p>
+
+[code language="bash"]                                                                                  
+0 5 * * 1 docker cp alfresco:/opt/alfresco/alf_data $HOME/alfresco/alf_data  
+0 5 * * 1 docker cp postgresql:/var/lib/postgresql/data $HOME/alfresco/database
+[/code]
+
+<p>In order to restore an existing repository on a new machine, the following three commands are all that's needed.</p>
+
+[code language="bash"]
+$ docker network create --driver bridge nw_alfresco
+
+$ docker run --name 'postgresql' \
+--net=nw_alfresco \
+-e POSTGRES_PASSWORD=123456 \
+-e POSTGRES_USER=psql_alfresco \
+-v $HOME/alfresco/database:/var/lib/postgresql/data \
+-d postgres
+
+$ docker run -d --name "alfresco" \
+  -p 7070:7070 -p 8080:8080 \
+ --net=nw_alfresco \
+ -e DATABASE_HOST=172.18.0.2 \
+ -e DATABASE_NAME=psql_alfresco \
+ -e DATABASE_PASSWORD=123456 \
+ -e DATABASE_USER=psql_alfresco \
+ -v $HOME/alfresco/alf_data:/opt/alfresco/alf_data \
+  $USER/alfresco
+[/code]
+
+<p>At this point, if one navigates to http://localhost/share/page, then all the data will be seen as expected. One should replace localhost with the IP address of the new host machine.</p>
+
+<h3>A Security Tip</h3>
+
+<p>It's absolutely essential to change the default username and/or the password.</p>
+
 <h3>Final Thoughts</h3>
+
+<p>One can easily deploy Alfresco using the above strategy in less than three minutes. As long as the database and alf_data directory are backed up, one can easily migrate from one host machine to another.In this blog, we have together demonstrated concepts related to Docker Networking and Data Volumes. I'm looking forward to your comments and feedback.</p>
+
+<h3>Archaeological Alfresco</h3>
+<p>It's very interesting to know that Alfresco is the art of painting on fresh stucco which was prominent in Roman times in ancient Egypt [<a href="#refs">17</a>].</p>
+
+<img class="aligncenter" src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Fayum-34.jpg/320px-Fayum-34.jpg" />
+
 <h3 id="refs">References:</h3>
 <ol>
-	<li>https://docs.docker.com/engine/userguide/networking/dockernetworks/</li>
-	<li>https://docs.docker.com/engine/userguide/containers/dockervolumes/</li>
-	<li>https://docs.docker.com/engine/admin/ambassador_pattern_linking/</li>
-	<li>https://rominirani.com/docker-tutorial-series-a7e6ff90a023#.4za9qufwj</li>
-	<li>https://docs.docker.com/engine/installation/linux/ubuntulinux/#create-a-docker-group</li>
-	<li>http://stackoverflow.com/a/20652410</li>
-	<li>https://medium.com/@ramangupta/why-docker-data-containers-are-good-589b3c6c749e#.76tzt4ctn</li>
-	<li>https://github.com/gui81/docker-alfresco/issues/7#issuecomment-222505587</li>
+	<li><a href="https://docs.docker.com/engine/userguide/networking/dockernetworks/">Docker Networks</a></li>
+	<li><a href="https://docs.docker.com/engine/userguide/containers/dockervolumes/">Docker Volumes</a></li>
+	<li><a href="https://docs.docker.com/engine/admin/ambassador_pattern_linking/">Docker Linking using Ambassador Links</a></li>
+	<li><a href="https://rominirani.com/docker-tutorial-series-a7e6ff90a023#.4za9qufwj">Docker Tutorial Series</a></li>
+	<li><a href="https://docs.docker.com/engine/installation/linux/ubuntulinux/#create-a-docker-group">Docker Installation: Create a Docker Group</a></li>
+	<li><a href="http://stackoverflow.com/a/20652410">How to deal with persistent storage (e.g. databases) in docker?</a></li>
+	<li><a href="https://medium.com/@ramangupta/why-docker-data-containers-are-good-589b3c6c749e#.76tzt4ctn">Why Docker Containers are Good?</a></li>
+	<li><a href="https://github.com/gui81/docker-alfresco/issues/7#issuecomment-222505587">Alfresco error when using data volume for "/alfresco/alf_data" #7</a></li>
 	<li>https://github.com/disaster37/rancher-alfresco#installation</li>
 	<li>https://docs.docker.com/engine/reference/commandline/volume_create/</li>
 	<li>https://hub.docker.com/_/postgres/</li>
 	<li><a href="http://stackoverflow.com/a/27673997">How to get to a psql from a running container?</a></li>
+<li><a href="https://wiki.alfresco.com/wiki/Backup_and_Restore">Alfresco Wiki: Backup &amp; Restore</a></li>
+<li><a href="http://code.haleby.se/2016/01/22/enable-ssl-in-jenkins-in-docker/">Enable SSL in Jenkins in Docker
+</a></li>
+<li><a href="https://hub.docker.com/r/gui81/alfresco/">Docker Hub: gui81/alfresco</a></li>
+<li><a href="http://askubuntu.com/questions/814/how-to-run-scripts-on-start-up">Ask Ubuntu: How to run scripts on start up?</a><li>
+<li><a href="https://en.wikipedia.org/wiki/Fayum_mummy_portraits">Wikipedia: Fayum Mummy Portraits</a></li>
+<li><a href="http://upstart.ubuntu.com/getting-started.html">Getting Started Upstart</a></li>
 </ol>
