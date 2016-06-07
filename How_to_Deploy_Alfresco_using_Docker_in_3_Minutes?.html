@@ -12,6 +12,19 @@
 
 <p>I'd also recommend changing the default directory that Docker is using to store images. Otherwise, the disk storage gets eaten up and one runs into a similar issue as described in a previous blog : <a href="https://mustafamahrous.wordpress.com/2016/05/27/ubuntu-login-screen-loop/">Ubuntu Login Screen Loop</a></p>
 
+<h3>Docker Container Linking</h3>
+
+<p>Prior to Container Networking, Docker provided a nifty feature to link containers via an argument - -link passed to the run command.</p>
+
+[code language="bash"]
+$ docker run --link [name or id]:alias image
+[/code]
+
+<h3>Docker Container Linking via an Ambassador</h3>
+
+<p>This is not everything. Docker provided another nifty feature that worked just out-of-the-box to link containers running on different machines using an ambassador container [<a href="#refs">3</a>]. This feature was also deprecated and superseded with <i>Overlay Networks</i> when Docker Networking was introduced [<a href="#refs">1</a>].</p>
+
+
 <h3>Docker Container Networking</h3>
 
 <p>Docker provides a networking mechanism to orchestrate the communication between the containers and the host and between the containers and each other.</p>
@@ -26,19 +39,9 @@
 
 <p>Briefly, the Host network copies the /etc/hosts file from the host machine to the container. The Bridge network connects the host machine and the container.</p>
 
-<p>Docker also gives options for networking containers running on the same host machine or containers running on different hosting machines. I'd suggest having a look at the documentation for a profound understanding [<a href="#refs">1</a>].</p>
+<p>Docker also gives options for networking containers running on the same host machine or containers running on different hosting machines. The following figure demonstrates an insulated bridge network, and a set of selected ports are exposed to the outer world. I'd suggest having a look at the documentation for a profound understanding [<a href="#refs">1</a>].</p>
 
-<h3>Docker Container Linking</h3>
-
-<p>Instead of hard-wiring containers using networking, Docker provides a nifty feature to link containers via an argument - -link passed to the run command.</p>
-
-[code language="bash"]
-$ docker run --link [name or id]:alias image
-[/code]
-
-<h3>Docker Container Linking via an Ambassador</h3>
-
-<p>This is not everything. Docker provides another nifty feature that works just out-of-the-box to link containers running on different machines using an ambassador container [<a href="#refs">3</a>]. This feature was alsodeprecated and superseded with <i>Overlay Networks</i> when Docker Networking was introduced [<a href="#refs">1</a>].</p>
+<img class="aligncenter" src="http://res.cloudinary.com/dzl9mwemk/image/upload/v1465295505/network_access_h7m2tl.png" />
 
 <h3>Docker Data Volumes</h3>
 
@@ -246,8 +249,8 @@ $ tail -f /alfresco/tomcat/logs
 [code language="bash"]
 $ git clone https://github.com/disaster37/rancher-alfresco.git
 $ cd rancher-alfresco
-$ docker build --tag=&quot;$USER/alfresco&quot;
-$ docker run -d --name &quot;alfresco&quot; \
+$ docker build --tag=&amp;quot;$USER/alfresco&amp;quot;
+$ docker run -d --name &amp;quot;alfresco&amp;quot; \
 -p 7070:7070 \
 -p 8080:8080 \
 --net=nw_alfresco \
@@ -335,7 +338,7 @@ $ docker run --name 'postgresql' \
 -v $HOME/alfresco/database:/var/lib/postgresql/data \
 -d postgres
 
-$ docker run -d --name &quot;alfresco&quot; \
+$ docker run -d --name &amp;quot;alfresco&amp;quot; \
   -p 7070:7070 -p 8080:8080 \
  --net=nw_alfresco \
  -e DATABASE_HOST=172.18.0.2 \
@@ -363,23 +366,23 @@ $ docker run -d --name &quot;alfresco&quot; \
 
 <h3 id="refs">References:</h3>
 <ol>
-	<li><a href="https://docs.docker.com/engine/userguide/networking/dockernetworks/">Docker Networks</a></li>
-	<li><a href="https://docs.docker.com/engine/userguide/containers/dockervolumes/">Docker Volumes</a></li>
-	<li><a href="https://docs.docker.com/engine/admin/ambassador_pattern_linking/">Docker Linking using Ambassador Links</a></li>
-	<li><a href="https://rominirani.com/docker-tutorial-series-a7e6ff90a023#.4za9qufwj">Docker Tutorial Series</a></li>
-	<li><a href="https://docs.docker.com/engine/installation/linux/ubuntulinux/#create-a-docker-group">Docker Installation: Create a Docker Group</a></li>
-	<li><a href="http://stackoverflow.com/a/20652410">How to deal with persistent storage (e.g. databases) in docker?</a></li>
-	<li><a href="https://medium.com/@ramangupta/why-docker-data-containers-are-good-589b3c6c749e#.76tzt4ctn">Why Docker Containers are Good?</a></li>
-	<li><a href="https://github.com/gui81/docker-alfresco/issues/7#issuecomment-222505587">Alfresco error when using data volume for "/alfresco/alf_data" #7</a></li>
-	<li><a href="https://github.com/disaster37/rancher-alfresco#installation">Rancher Alfresco Docker Image</a></li>
-	<li><a href="https://docs.docker.com/engine/reference/commandline/volume_create/">Docker CLI Volume Create</a></li>
-	<li><a href="https://hub.docker.com/_/postgres/">Official Docker PostgreSql</a></li>
-	<li><a href="http://stackoverflow.com/a/27673997">How to get to a psql from a running container?</a></li>
-<li><a href="https://wiki.alfresco.com/wiki/Backup_and_Restore">Alfresco Wiki: Backup &amp; Restore</a></li>
-<li><a href="http://code.haleby.se/2016/01/22/enable-ssl-in-jenkins-in-docker/">Enable SSL in Jenkins in Docker
+	<li><a target="_blank" href="https://docs.docker.com/engine/userguide/networking/dockernetworks/">Docker Networks</a></li>
+	<li><a target="_blank" href="https://docs.docker.com/engine/userguide/containers/dockervolumes/">Docker Volumes</a></li>
+	<li><a target="_blank" href="https://docs.docker.com/engine/admin/ambassador_pattern_linking/">Docker Linking using Ambassador Links</a></li>
+	<li><a target="_blank" href="https://rominirani.com/docker-tutorial-series-a7e6ff90a023#.4za9qufwj">Docker Tutorial Series</a></li>
+	<li><a target="_blank" href="https://docs.docker.com/engine/installation/linux/ubuntulinux/#create-a-docker-group">Docker Installation: Create a Docker Group</a></li>
+	<li><a target="_blank" href="http://stackoverflow.com/a/20652410">How to deal with persistent storage (e.g. databases) in docker?</a></li>
+	<li><a target="_blank" href="https://medium.com/@ramangupta/why-docker-data-containers-are-good-589b3c6c749e#.76tzt4ctn">Why Docker Containers are Good?</a></li>
+	<li><a target="_blank" href="https://github.com/gui81/docker-alfresco/issues/7#issuecomment-222505587">Alfresco error when using data volume for "/alfresco/alf_data" #7</a></li>
+	<li><a target="_blank" href="https://github.com/disaster37/rancher-alfresco#installation">Rancher Alfresco Docker Image</a></li>
+	<li><a target="_blank" href="https://docs.docker.com/engine/reference/commandline/volume_create/">Docker CLI Volume Create</a></li>
+	<li><a target="_blank" href="https://hub.docker.com/_/postgres/">Official Docker PostgreSql</a></li>
+	<li><a target="_blank" href="http://stackoverflow.com/a/27673997">How to get to a psql from a running container?</a></li>
+<li><a target="_blank" href="https://wiki.alfresco.com/wiki/Backup_and_Restore">Alfresco Wiki: Backup &amp; Restore</a></li>
+<li><a target="_blank" href="http://code.haleby.se/2016/01/22/enable-ssl-in-jenkins-in-docker/">Enable SSL in Jenkins in Docker
 </a></li>
-<li><a href="https://hub.docker.com/r/gui81/alfresco/">Docker Hub: gui81/alfresco</a></li>
-<li><a href="http://askubuntu.com/questions/814/how-to-run-scripts-on-start-up">Ask Ubuntu: How to run scripts on start up?</a></li>
-<li><a href="http://upstart.ubuntu.com/getting-started.html">Getting Started Upstart</a></li>
-<li><a href="https://en.wikipedia.org/wiki/Fayum_mummy_portraits">Wikipedia: Fayum Mummy Portraits</a></li>
+<li><a target="_blank" href="https://hub.docker.com/r/gui81/alfresco/">Docker Hub: gui81/alfresco</a></li>
+<li><a target="_blank" href="http://askubuntu.com/questions/814/how-to-run-scripts-on-start-up">Ask Ubuntu: How to run scripts on start up?</a></li>
+<li><a target="_blank" href="http://upstart.ubuntu.com/getting-started.html">Getting Started Upstart</a></li>
+<li><a target="_blank" href="https://en.wikipedia.org/wiki/Fayum_mummy_portraits">Wikipedia: Fayum Mummy Portraits</a></li>
 </ol>
